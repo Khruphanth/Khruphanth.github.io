@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>เข้าสู่ระบบ | ระบบครุภัณฑ์</title>
+  <link rel="stylesheet" href="./css/login.css">
+</head>
+<body>
+  <div class="login-container">
+    <h2>ระบบจัดการครุภัณฑ์</h2>
+    <form id="loginForm">
+      <label for="username">ชื่อผู้ใช้</label>
+      <input type="text" id="username" placeholder="กรอกชื่อผู้ใช้" required>
+
+      <label for="password">รหัสผ่าน</label>
+      <input type="password" id="password" placeholder="กรอกรหัสผ่าน" required>
+
+      <button type="submit">เข้าสู่ระบบ</button>
+      <p id="error-message" class="error"></p>
+    </form>
+
+    <p class="back-home">
+      <a href="index.html">← กลับหน้าแรก</a>
+    </p>
+  </div>
+
+  <script src="./scripts/login.js"></script>
+</body>
+</html>
