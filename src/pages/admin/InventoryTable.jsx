@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
-import { fetchSheetData, postAction } from '../services/api';
+import { fetchSheetData, postAction } from '../../services/api';
 import { SHEET_NAMES } from '../config/config';
-import { formatDate, getStatusBadgeClass } from '../utils/formatter';
+import { formatDate, getStatusBadgeClass } from '../../utils/formatter';
 
 const InventoryTable = () => {
   const [data, setData] = useState([]);
