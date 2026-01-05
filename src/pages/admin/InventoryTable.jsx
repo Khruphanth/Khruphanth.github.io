@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
-import { fetchSheetData, postAction } from '../services/api';
-import { SHEET_NAMES } from '../config/config';
+import { fetchSheetData, postAction } from '../../services/api';
+import { SHEET_NAMES } from '../../config/config';
 
 const InventoryTable = () => {
   const [data, setData] = useState([]);
@@ -21,16 +21,13 @@ const InventoryTable = () => {
     setLoading(true);
     try {
       const rows = await fetchSheetData(SHEET_NAMES.DATA || "DATA");
-
-      // DATA: [0]=ลำดับ, [1]=รหัส, [2]=ชื่อ, [3]=Barcode, [4]=QRCode
+      // DATA: [0]=ลำดับ, [1]=รหัส, [2]=ชื่อ
       const mapped = rows.map((r, i) => ({
         row: i + 2,
-        no: i + 1, // รันเลขลำดับใหม่โดยอัตโนมัติ (หรือใช้ r[0] ก็ได้)
+        no: i + 1, 
         code: r[1],
         name: r[2]
-        // ไม่ต้องดึง r[3], r[4] เพราะเราจะ Gen รูปสดๆ
       }));
-
       setData(mapped);
     } catch (e) {
       console.error(e);
@@ -40,7 +37,7 @@ const InventoryTable = () => {
 
   useEffect(() => { loadList(); }, []);
 
-  // ฟังก์ชันดาวน์โหลดรูป (เพิ่มเข้ามาให้)
+  // ฟังก์ชันดาวน์โหลดรูป
   const downloadImg = async (url, filename) => {
     try {
         Swal.fire({
@@ -66,10 +63,8 @@ const InventoryTable = () => {
   const handleAddItem = async (e) => {
     e.preventDefault();
     setShowAddModal(false);
-
     Swal.fire({ title: 'กำลังเพิ่ม...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-    // ส่งสูตร Excel ไปเก็บใน Sheet (เพื่อให้ใน Sheet มีรูปด้วย)
     await postAction("DATA", "add", {
       "รหัส": currentItem.code,
       "ชื่อ": currentItem.name,
@@ -85,15 +80,13 @@ const InventoryTable = () => {
   // ================= UPDATE =================
   const handleEditSave = async () => {
     setShowEditModal(false);
-
     Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
     await postAction("DATA", "edit", {
       row: currentItem.row,
       "รหัส": currentItem.code,
       "ชื่อ": currentItem.name,
-      // ส่งค่าเดิมกลับไป หรือเว้นว่างถ้า API จัดการไว้แล้ว
-      "ที่อยู่": "-", 
+      "ที่อยู่": "-",
       "สถานะ": "ใช้งานได้",
       "รายละเอียด": "-"
     });
@@ -114,9 +107,7 @@ const InventoryTable = () => {
     if (!res.isConfirmed) return;
 
     Swal.fire({ title: 'กำลังลบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-
     await postAction("DATA", "delete", { row });
-
     Swal.fire('ลบแล้ว', '', 'success');
     loadList();
   };
@@ -124,11 +115,17 @@ const InventoryTable = () => {
   // ================= UI =================
   return (
     <div className="card shadow-sm rounded-4">
+      {/* --- ส่วนหัวตาราง (เพิ่มปุ่มรีเฟรชกลับมาแล้ว) --- */}
       <div className="card-header bg-white d-flex justify-content-between align-items-center">
         <h5 className="fw-bold text-primary m-0">ฐานข้อมูลครุภัณฑ์</h5>
-        <button className="btn btn-primary btn-sm" onClick={() => { setCurrentItem({}); setShowAddModal(true); }}>
-          + เพิ่ม
-        </button>
+        <div>
+            <button className="btn btn-outline-secondary btn-sm me-2" onClick={loadList}>
+                <i className="bi bi-arrow-clockwise"></i> รีเฟรช
+            </button>
+            <button className="btn btn-primary btn-sm" onClick={() => { setCurrentItem({}); setShowAddModal(true); }}>
+                + เพิ่ม
+            </button>
+        </div>
       </div>
 
       <div className="table-responsive p-3">
@@ -147,7 +144,6 @@ const InventoryTable = () => {
             {loading ? (
               <tr><td colSpan="6" className="text-center py-4">กำลังโหลด...</td></tr>
             ) : data.map((item, i) => {
-              // สร้าง URL รูปภาพ
               const bcUrl = `https://barcode.tec-it.com/barcode.ashx?data=${item.code}&code=Code128&translate-esc=on`;
               const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${item.code}`;
 
@@ -157,12 +153,10 @@ const InventoryTable = () => {
                   <td className="fw-bold text-primary">{item.code}</td>
                   <td>{item.name}</td>
                   
-                  {/* แสดงรูป Barcode */}
                   <td className="text-center" style={{cursor: 'pointer'}} onClick={() => downloadImg(bcUrl, `barcode-${item.code}.gif`)}>
                     <img src={bcUrl} alt="barcode" height="30" />
                   </td>
                   
-                  {/* แสดงรูป QR Code */}
                   <td className="text-center" style={{cursor: 'pointer'}} onClick={() => downloadImg(qrUrl, `qr-${item.code}.png`)}>
                     <img src={qrUrl} alt="qrcode" height="40" />
                   </td>
