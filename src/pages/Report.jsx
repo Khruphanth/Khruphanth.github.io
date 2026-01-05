@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
 import { fetchSheetData, postAction } from '../services/api';
 import { SHEET_NAMES } from '../config/config';
-import { formatDate } from '../utils/formatter';
 
 const Report = () => {
   const [data, setData] = useState([]);
@@ -12,17 +11,18 @@ const Report = () => {
   const loadReport = async () => {
     setLoading(true);
     try {
-      // ใช้ fetchSheetData (GViz) เพื่อความเร็วและสม่ำเสมอ
+      // ดึงข้อมูลจาก Sheet (ใช้ REPORT หรือ SHOW หรือ DATA ตามที่คุณใช้งานจริง)
+      // แนะนำใช้ DATA หากต้องการข้อมูลทั้งหมดเหมือนหน้าฐานข้อมูล
       const rows = await fetchSheetData(SHEET_NAMES.REPORT || "REPORT");
       
-      // Map ข้อมูล (ปรับ Index ตามคอลัมน์จริงใน Sheet REPORT ของคุณ)
-      // สมมติ: [0:ID, 1:Name, 2:Detail, 3:Date]
+      // Map ข้อมูลตามคอลัมน์ [0:Code, 1:Name, 2:Location, 3:Status, 4:Detail/Note]
       const items = rows.map((r, i) => ({
-        row: i + 2, // เก็บเลขแถวสำหรับลบ
-        id: r[0] || "",
-        name: r[1] || "",
-        detail: r[2] || "",
-        date: r[3] || ""
+        id: i + 1,        // ลำดับ
+        code: r[0] || "-", // หมายเลขครุภัณฑ์
+        name: r[1] || "-", // รายการ
+        location: r[2] || "-", // สถานที่เก็บ
+        status: r[3] || "-",   // สภาพ
+        note: r[4] || "-"      // หมายเหตุ
       }));
       setData(items);
     } catch (err) {
@@ -36,31 +36,6 @@ const Report = () => {
     loadReport();
   }, []);
 
-  // ฟังก์ชันลบ
-  const handleDelete = async (row) => {
-    const result = await Swal.fire({
-      title: 'ยืนยันการลบ?',
-      text: "ข้อมูลจะหายไปถาวร",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      confirmButtonText: 'ลบข้อมูล'
-    });
-
-    if (result.isConfirmed) {
-      Swal.fire({ title: 'กำลังลบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-      
-      const res = await postAction(SHEET_NAMES.REPORT || "REPORT", "delete", { row });
-      
-      if (res && res.status !== 'error') {
-        Swal.fire('ลบเสร็จสิ้น', '', 'success');
-        loadReport();
-      } else {
-        Swal.fire('ผิดพลาด', 'ลบข้อมูลไม่สำเร็จ', 'error');
-      }
-    }
-  };
-
   // ฟังก์ชันสร้างเอกสาร (PDF/Word)
   const handleExport = async (format) => {
     Swal.fire({
@@ -70,22 +45,23 @@ const Report = () => {
       didOpen: () => Swal.showLoading()
     });
 
-    // ส่งคำขอไป Google Script (ฟังก์ชัน generateReport)
-    // หมายเหตุ: ต้องมั่นใจว่าใน Google Apps Script มีฟังก์ชันรองรับ case 'generateReport'
-    const res = await postAction(SHEET_NAMES.SHOW || "SHOW", "generateReport", { format });
+    try {
+      const res = await postAction(SHEET_NAMES.SHOW || "SHOW", "generateReport", { format });
 
-    if (res && res.fileData) {
-      // แปลง Base64 เป็นไฟล์แล้วดาวน์โหลด
-      const link = document.createElement('a');
-      link.href = `data:application/octet-stream;base64,${res.fileData}`;
-      link.download = res.fileName || `report.${format === 'doc' ? 'docx' : 'pdf'}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      Swal.fire('สำเร็จ', 'ดาวน์โหลดเอกสารแล้ว', 'success');
-    } else {
-      Swal.fire('ผิดพลาด', 'ไม่สามารถสร้างเอกสารได้', 'error');
+      if (res && res.fileData) {
+        const link = document.createElement('a');
+        link.href = `data:application/octet-stream;base64,${res.fileData}`;
+        link.download = res.fileName || `report.${format === 'doc' ? 'docx' : 'pdf'}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        Swal.fire('สำเร็จ', 'ดาวน์โหลดเอกสารแล้ว', 'success');
+      } else {
+        Swal.fire('ผิดพลาด', 'ไม่สามารถสร้างเอกสารได้', 'error');
+      }
+    } catch (e) {
+      Swal.fire('ผิดพลาด', 'เกิดข้อผิดพลาดในการเชื่อมต่อ', 'error');
     }
   };
 
@@ -109,37 +85,38 @@ const Report = () => {
 
       {/* Table Content */}
       <div className="table-responsive p-3">
-        <table className="table table-hover align-middle">
-          <thead className="table-light">
+        <table className="table table-hover align-middle table-bordered">
+          <thead className="table-light text-center">
             <tr>
-              <th>รหัส</th>
-              <th>ชื่อรายการ</th>
-              <th>รายละเอียด</th>
-              <th>วันที่</th>
-              <th className="text-center">จัดการ</th>
+              <th width="5%">ลำดับ</th>
+              <th width="15%">หมายเลขครุภัณฑ์</th>
+              <th width="25%">รายการ</th>
+              <th width="15%">สภาพ</th>
+              <th width="15%">สถานที่เก็บ</th>
+              <th width="25%">หมายเหตุ</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="5" className="text-center p-4">กำลังโหลดข้อมูล...</td></tr>
+              <tr><td colSpan="6" className="text-center p-4">กำลังโหลดข้อมูล...</td></tr>
             ) : data.length === 0 ? (
-              <tr><td colSpan="5" className="text-center p-4 text-muted">ไม่พบข้อมูลรายงาน</td></tr>
+              <tr><td colSpan="6" className="text-center p-4 text-muted">ไม่พบข้อมูลรายงาน</td></tr>
             ) : (
               data.map((item, idx) => (
                 <tr key={idx}>
-                  <td className="fw-bold text-primary">{item.id}</td>
+                  <td className="text-center">{item.id}</td>
+                  <td className="fw-bold text-primary">{item.code}</td>
                   <td>{item.name}</td>
-                  <td>{item.detail}</td>
-                  <td>{formatDate(item.date)}</td>
                   <td className="text-center">
-                    <button 
-                      className="btn btn-light btn-sm text-danger border" 
-                      onClick={() => handleDelete(item.row)}
-                      title="ลบรายการ"
-                    >
-                      <i className="bi bi-trash"></i>
-                    </button>
+                    <span className={`badge ${
+                      item.status === 'ใช้งานได้' ? 'bg-success' : 
+                      item.status === 'ชำรุด' ? 'bg-danger' : 'bg-warning text-dark'
+                    }`}>
+                      {item.status}
+                    </span>
                   </td>
+                  <td>{item.location}</td>
+                  <td>{item.note}</td>
                 </tr>
               ))
             )}
