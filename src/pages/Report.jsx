@@ -7,22 +7,21 @@ const Report = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // โหลดข้อมูลรายงาน
+  // โหลดข้อมูล
   const loadReport = async () => {
     setLoading(true);
     try {
-      // ดึงข้อมูลจาก Sheet (ใช้ REPORT หรือ SHOW หรือ DATA ตามที่คุณใช้งานจริง)
-      // แนะนำใช้ DATA หากต้องการข้อมูลทั้งหมดเหมือนหน้าฐานข้อมูล
-      const rows = await fetchSheetData(SHEET_NAMES.REPORT || "REPORT");
+      // ดึงจาก SHOW ตามที่แจ้ง
+      const rows = await fetchSheetData(SHEET_NAMES.SHOW || "SHOW");
       
-      // Map ข้อมูลตามคอลัมน์ [0:Code, 1:Name, 2:Location, 3:Status, 4:Detail/Note]
+      // Mapping ข้อมูล [0:รหัส, 1:ชื่อ, 2:ที่อยู่, 3:สถานะ, 4:หมายเหตุ]
       const items = rows.map((r, i) => ({
-        id: i + 1,        // ลำดับ
-        code: r[1] || "-", // หมายเลขครุภัณฑ์
-        name: r[2] || "-", // รายการ
-        location: r[3] || "-", // สถานที่เก็บ
-        status: r[4] || "-",   // สภาพ
-        note: r[5] || "-"      // หมายเหตุ
+        id: i + 1,
+        code: r[1] || "-",
+        name: r[2] || "-",
+        location: r[3] || "-",
+        status: r[4] || "-",
+        note: r[5] || "-"
       }));
       setData(items);
     } catch (err) {
@@ -36,11 +35,11 @@ const Report = () => {
     loadReport();
   }, []);
 
-  // ฟังก์ชันสร้างเอกสาร (PDF/Word)
+  // --- ฟังก์ชันดาวน์โหลด (แก้ไขใหม่) ---
   const handleExport = async (format) => {
     Swal.fire({
       title: `กำลังสร้างไฟล์ ${format.toUpperCase()}...`,
-      text: 'กรุณารอสักครู่',
+      text: 'กรุณารอสักครู่ (อาจใช้เวลา 5-10 วินาที)',
       allowOutsideClick: false,
       didOpen: () => Swal.showLoading()
     });
@@ -49,8 +48,21 @@ const Report = () => {
       const res = await postAction(SHEET_NAMES.SHOW || "SHOW", "generateReport", { format });
 
       if (res && res.fileData) {
+        // 1. แปลง Base64 แบบ WebSafe (-) (_) ให้เป็น Standard (+) (/)
+        const base64 = res.fileData.replace(/-/g, '+').replace(/_/g, '/');
+        
+        // 2. แปลง Base64 เป็น Blob Object (วิธีนี้รองรับไฟล์ใหญ่ได้ดีกว่า)
+        const byteCharacters = atob(base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: "application/octet-stream" });
+
+        // 3. สร้าง Link ดาวน์โหลดจาก Blob
         const link = document.createElement('a');
-        link.href = `data:application/octet-stream;base64,${res.fileData}`;
+        link.href = URL.createObjectURL(blob);
         link.download = res.fileName || `report.${format === 'doc' ? 'docx' : 'pdf'}`;
         document.body.appendChild(link);
         link.click();
@@ -58,9 +70,10 @@ const Report = () => {
         
         Swal.fire('สำเร็จ', 'ดาวน์โหลดเอกสารแล้ว', 'success');
       } else {
-        Swal.fire('ผิดพลาด', 'ไม่สามารถสร้างเอกสารได้', 'error');
+        Swal.fire('ผิดพลาด', 'ไม่ได้รับข้อมูลไฟล์จาก Server', 'error');
       }
     } catch (e) {
+      console.error(e);
       Swal.fire('ผิดพลาด', 'เกิดข้อผิดพลาดในการเชื่อมต่อ', 'error');
     }
   };
@@ -83,7 +96,7 @@ const Report = () => {
         </div>
       </div>
 
-      {/* Table Content */}
+      {/* Table */}
       <div className="table-responsive p-3">
         <table className="table table-hover align-middle table-bordered">
           <thead className="table-light text-center">
@@ -110,7 +123,8 @@ const Report = () => {
                   <td className="text-center">
                     <span className={`badge ${
                       item.status === 'ใช้งานได้' ? 'bg-success' : 
-                      item.status === 'ชำรุด' ? 'bg-danger' : 'bg-warning text-dark'
+                      item.status === 'ชำรุด' ? 'bg-danger' : 
+                      item.status === 'เสื่อมสภาพ' ? 'bg-warning text-dark' : 'bg-secondary'
                     }`}>
                       {item.status}
                     </span>
