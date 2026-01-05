@@ -18,11 +18,11 @@ const Report = () => {
       // Map ข้อมูลตามคอลัมน์ [0:Code, 1:Name, 2:Location, 3:Status, 4:Detail/Note]
       const items = rows.map((r, i) => ({
         id: i + 1,        // ลำดับ
-        code: r[0] || "-", // หมายเลขครุภัณฑ์
-        name: r[1] || "-", // รายการ
-        location: r[2] || "-", // สถานที่เก็บ
-        status: r[3] || "-",   // สภาพ
-        note: r[4] || "-"      // หมายเหตุ
+        code: r[1] || "-", // หมายเลขครุภัณฑ์
+        name: r[2] || "-", // รายการ
+        location: r[3] || "-", // สถานที่เก็บ
+        status: r[4] || "-",   // สภาพ
+        note: r[5] || "-"      // หมายเหตุ
       }));
       setData(items);
     } catch (err) {
