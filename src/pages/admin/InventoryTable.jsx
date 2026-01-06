@@ -6,7 +6,7 @@ import { SHEET_NAMES } from '../../config/config';
 // หมวดหมู่สำหรับ Dropdown
 const CATEGORIES = ["-", "เครื่องใช้ไฟฟ้า", "พัดลม", "เครื่องปรับอากาศ", "เฟอร์นิเจอร์", "อุปกรณ์คอมพิวเตอร์", "สื่อการสอน", "อื่นๆ"];
 
-// --- Component ย่อย: รูปภาพที่โหลดใหม่ได้ (RetryImage) ---
+// --- Component ย่อย: รูปภาพที่โหลดใหม่ได้ ---
 const RetryImage = ({ src, alt, height }) => {
   const [imgSrc, setImgSrc] = useState(src);
   const [error, setError] = useState(false);
@@ -18,12 +18,12 @@ const RetryImage = ({ src, alt, height }) => {
     e.stopPropagation();
     setLoading(true);
     setError(false);
-    setImgSrc(`${src}&t=${Date.now()}`);
+    setImgSrc(`${src}&t=${Date.now()}`); // Force reload
   };
 
   return (
     <div className="position-relative d-inline-block" style={{ minWidth: '30px', minHeight: height }}>
-      {loading && !error && <div className="spinner-border spinner-border-sm text-secondary" role="status"></div>}
+      {loading && !error && <div className="spinner-border spinner-border-sm text-secondary" role="status" style={{width: '1rem', height: '1rem'}}></div>}
       <img 
         src={imgSrc} alt={alt} height={height}
         className={error ? 'd-none' : ''}
@@ -33,8 +33,8 @@ const RetryImage = ({ src, alt, height }) => {
         onClick={() => window.open(src, '_blank')}
       />
       {error && (
-        <button className="btn btn-sm btn-outline-secondary p-0 px-1" onClick={handleRetry} title="โหลดรูปใหม่">
-          <i className="bi bi-arrow-clockwise"></i>
+        <button className="btn btn-sm btn-light border p-0 px-1 shadow-sm" onClick={handleRetry} title="โหลดรูปใหม่">
+          <i className="bi bi-arrow-clockwise text-danger"></i>
         </button>
       )}
     </div>
@@ -144,7 +144,7 @@ const InventoryTable = () => {
     }
   };
 
-  // --- Batch Add ---
+  // --- Add Batch ---
   const handleAddNewRow = () => setNewItems([...newItems, { id: Date.now(), code: '', name: '', category: '-', detail: '' }]);
   const handleRemoveNewRow = (id) => setNewItems(newItems.filter(item => item.id !== id));
   const handleNewItemChange = (id, field, value) => setNewItems(newItems.map(item => item.id === id ? { ...item, [field]: value } : item));
@@ -231,29 +231,24 @@ const InventoryTable = () => {
 
   return (
     <div className="card shadow-sm rounded-4">
-      
-      {/* --- HEADER: ปุ่มรวมกันด้านขวา --- */}
+      {/* --- HEADER --- */}
       <div className="card-header bg-white py-3">
         <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
           
-          {/* ซ้าย: ชื่อตาราง */}
           <h5 className="fw-bold text-primary m-0"><i className="bi bi-box-seam me-2"></i>ฐานข้อมูลครุภัณฑ์</h5>
           
-          {/* ขวา: กลุ่มเครื่องมือ (Search + Buttons) */}
           <div className="d-flex align-items-center gap-2">
-             
-             {/* ช่องค้นหา */}
              <div className="input-group input-group-sm" style={{width: '200px'}}>
                 <span className="input-group-text bg-light"><i className="bi bi-search"></i></span>
                 <input className="form-control" placeholder="ค้นหา..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
             </div>
 
-            {/* ปุ่มรีเฟรช (มีอนิเมชันหมุนเมื่อ Loading) */}
+            {/* ปุ่มรีเฟรช (แสดงสถานะโหลด) */}
             <button className="btn btn-outline-secondary btn-sm" onClick={loadList} disabled={loading} title="รีเฟรชข้อมูล">
                 <i className={`bi bi-arrow-clockwise ${loading ? 'spin-anim' : ''}`}></i>
             </button>
 
-            {/* ปุ่มจัดการ (Bulk Actions) */}
+            {/* ปุ่มจัดการ (แสดงตลอด กดได้ตลอด) */}
             {isMultiEditMode ? (
                <div className="btn-group btn-group-sm">
                  <button className="btn btn-success" onClick={saveBulkEdit}><i className="bi bi-save me-1"></i>บันทึก</button>
@@ -261,18 +256,12 @@ const InventoryTable = () => {
                </div>
             ) : (
                <div className="btn-group btn-group-sm">
-                 {/* ปุ่มเครื่องมือจัดการ (แสดงเมื่อมีการเลือกแถว) */}
-                 {selectedRows.size > 0 && (
-                    <>
-                        <button className="btn btn-warning text-dark" onClick={startBulkEdit} title="แก้ไขรายการที่เลือก">
-                            <i className="bi bi-pencil-square"></i>
-                        </button>
-                        <button className="btn btn-danger" onClick={deleteBulk} title="ลบรายการที่เลือก">
-                            <i className="bi bi-trash"></i>
-                        </button>
-                    </>
-                 )}
-                 {/* ปุ่มเพิ่มรายการ */}
+                 <button className="btn btn-warning text-dark" onClick={startBulkEdit} title="แก้ไขรายการที่เลือก">
+                    <i className="bi bi-pencil-square"></i> แก้ไข ({selectedRows.size})
+                 </button>
+                 <button className="btn btn-danger" onClick={deleteBulk} title="ลบรายการที่เลือก">
+                    <i className="bi bi-trash"></i> ลบ ({selectedRows.size})
+                 </button>
                  <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
                     <i className="bi bi-plus-lg me-1"></i> เพิ่มรายการ
                  </button>
@@ -425,7 +414,6 @@ const InventoryTable = () => {
         </div>
       )}
 
-      {/* CSS Animation for Refresh Spin */}
       <style>{`
         .table-row-hover:hover { background-color: #f8f9fa !important; box-shadow: inset 0 0 0 9999px rgba(0,0,0,0.02); }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
