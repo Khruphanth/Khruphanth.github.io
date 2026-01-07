@@ -16,21 +16,27 @@ const WaitTable = () => {
     setLoading(true);
     try {
       const rows = await fetchSheetData(SHEET_NAMES.WAIT || "WAIT");
-      
-      // กรองเฉพาะแถวที่มีข้อมูลรหัส (r[0]) และรหัสต้องไม่เป็นค่าว่างจริง ๆ
+
+      // ✅ กรองแบบเอาให้ตาย: ไม่มีรหัส = ไม่เกิดแถว
       const mapped = rows
-        .filter(r => r && r[0] && String(r[0]).trim() !== "" && String(r[0]) !== "null")
+        .filter(r =>
+          Array.isArray(r) &&
+          r[0] !== undefined &&
+          r[0] !== null &&
+          String(r[0]).trim() !== "" &&
+          String(r[0]).toLowerCase() !== "null"
+        )
         .map((r, i) => ({
           row: i + 2,
-          code: r[0], 
-          name: r[1],
-          location: "-", 
-          status: "-",   
-          note: r[4] || "", 
-          date: r[5], 
+          code: String(r[0]).trim(),
+          name: r[1] || "",
+          location: "-",
+          status: "-",
+          note: r[4] || "",
+          date: r[5],
           time: r[6]
         }));
-        
+
       setData(mapped);
       setSelectedRows(new Set());
     } catch (e) {
@@ -59,23 +65,28 @@ const WaitTable = () => {
 
   const toggleSelect = (rowId) => {
     const newSet = new Set(selectedRows);
-    if (newSet.has(rowId)) newSet.delete(rowId); else newSet.add(rowId);
+    newSet.has(rowId) ? newSet.delete(rowId) : newSet.add(rowId);
     setSelectedRows(newSet);
   };
 
   const handleApprove = async () => {
     const itemsToApprove = data.filter(item => selectedRows.has(item.row));
     if (itemsToApprove.length === 0) return;
-    
+
     const invalid = itemsToApprove.find(i => i.location === "-" || i.status === "-");
-    if (invalid) return Swal.fire('ข้อมูลไม่ครบ', `รหัส ${invalid.code} ยังไม่ได้เลือกที่อยู่หรือสถานะ`, 'warning');
+    if (invalid) {
+      return Swal.fire('ข้อมูลไม่ครบ', `รหัส ${invalid.code} ยังไม่ได้เลือกที่อยู่หรือสถานะ`, 'warning');
+    }
 
     Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     try {
       for (const item of itemsToApprove) {
         await postAction("LOG", "addLog", {
-          "รหัส": item.code, "ชื่อ": item.name, "ที่อยู่": item.location,
-          "สถานะ": item.status, "หมายเหตุ": item.note
+          "รหัส": item.code,
+          "ชื่อ": item.name,
+          "ที่อยู่": item.location,
+          "สถานะ": item.status,
+          "หมายเหตุ": item.note
         });
         await postAction("WAIT", "delete", { row: item.row });
       }
@@ -97,19 +108,24 @@ const WaitTable = () => {
       <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center">
         <h5 className="fw-bold text-primary m-0">รายการรอตรวจสอบ ({data.length})</h5>
         <div className="btn-group btn-group-sm">
-          <button className="btn btn-outline-secondary" onClick={loadWait}><i className="bi bi-arrow-clockwise"></i> รีเฟรช</button>
-          <button className="btn btn-success" onClick={handleApprove} disabled={selectedRows.size === 0}><i className="bi bi-check-lg"></i> อนุมัติที่เลือก</button>
+          <button className="btn btn-outline-secondary" onClick={loadWait}>
+            <i className="bi bi-arrow-clockwise"></i> รีเฟรช
+          </button>
+          <button className="btn btn-success" onClick={handleApprove} disabled={selectedRows.size === 0}>
+            <i className="bi bi-check-lg"></i> อนุมัติที่เลือก
+          </button>
         </div>
       </div>
+
       <div className="table-responsive p-3">
         <table className="table table-hover align-middle">
           <thead className="table-light">
             <tr>
-              <th width="40"><i className="bi bi-check2-square"></i></th>
+              <th width="40"></th>
               <th>รหัส</th>
               <th>ชื่อ</th>
-              <th style={{width: '150px'}}>ที่อยู่</th>
-              <th style={{width: '150px'}}>สถานะ</th>
+              <th style={{ width: '150px' }}>ที่อยู่</th>
+              <th style={{ width: '150px' }}>สถานะ</th>
               <th>หมายเหตุ</th>
               <th>วันที่</th>
               <th>เวลา</th>
@@ -117,9 +133,10 @@ const WaitTable = () => {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="8" className="text-center p-4">กำลังโหลด...</td></tr>
+              <tr>
+                <td colSpan="8" className="text-center p-4">กำลังโหลด...</td>
+              </tr>
             ) : data.length === 0 ? (
-              /* 🔥 ส่วนสำคัญ: ถ้า data ว่างจริง ๆ หลัง filter แล้ว ให้โชว์ข้อความนี้ */
               <tr>
                 <td colSpan="8" className="text-center py-5 text-muted">
                   <i className="bi bi-inbox fs-1 d-block mb-2"></i>
@@ -128,27 +145,47 @@ const WaitTable = () => {
               </tr>
             ) : (
               data.map((item, idx) => (
-                <tr key={idx} onClick={() => toggleSelect(item.row)} style={{cursor: 'pointer'}}>
+                <tr key={item.row} onClick={() => toggleSelect(item.row)} style={{ cursor: 'pointer' }}>
                   <td onClick={e => e.stopPropagation()}>
-                    <input type="checkbox" className="form-check-input" checked={selectedRows.has(item.row)} onChange={() => toggleSelect(item.row)} />
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      checked={selectedRows.has(item.row)}
+                      onChange={() => toggleSelect(item.row)}
+                    />
                   </td>
+
                   <td className="fw-bold">{item.code}</td>
                   <td>{item.name}</td>
+
                   <td onClick={e => e.stopPropagation()}>
-                    <select className={`form-select form-select-sm ${item.location === '-' ? 'border-danger' : 'border-success'}`}
-                      value={item.location} onChange={e => handleChange(idx, 'location', e.target.value)}>
+                    <select
+                      className={`form-select form-select-sm ${item.location === '-' ? 'border-danger' : 'border-success'}`}
+                      value={item.location}
+                      onChange={e => handleChange(idx, 'location', e.target.value)}
+                    >
                       {LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
                     </select>
                   </td>
+
                   <td onClick={e => e.stopPropagation()}>
-                    <select className={`form-select form-select-sm ${item.status === '-' ? 'border-danger' : 'border-success'}`}
-                      value={item.status} onChange={e => handleChange(idx, 'status', e.target.value)}>
+                    <select
+                      className={`form-select form-select-sm ${item.status === '-' ? 'border-danger' : 'border-success'}`}
+                      value={item.status}
+                      onChange={e => handleChange(idx, 'status', e.target.value)}
+                    >
                       {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </td>
+
                   <td onClick={e => e.stopPropagation()}>
-                    <input className="form-control form-control-sm" value={item.note} onChange={e => handleChange(idx, 'note', e.target.value)}/>
+                    <input
+                      className="form-control form-control-sm"
+                      value={item.note}
+                      onChange={e => handleChange(idx, 'note', e.target.value)}
+                    />
                   </td>
+
                   <td>{formatDate(item.date)}</td>
                   <td>{renderTime(item.time)}</td>
                 </tr>
