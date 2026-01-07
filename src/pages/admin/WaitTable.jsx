@@ -17,16 +17,21 @@ const WaitTable = () => {
     try {
       const rows = await fetchSheetData(SHEET_NAMES.WAIT || "WAIT");
 
-      const mapped = rows.map((r, i) => ({
-        row: i + 2,
-        code: r?.[0] ? String(r[0]).trim() : "",
-        name: r?.[1] || "",
-        location: "-",
-        status: "-",
-        note: r?.[4] || "",
-        date: r?.[5],
-        time: r?.[6]
-      }));
+      // 🔥 ตัด header row (แถวหัวตาราง) ทิ้งแน่นอน
+      const bodyRows = Array.isArray(rows) ? rows.slice(1) : [];
+
+      const mapped = bodyRows
+        .filter(r => r && r[0] && String(r[0]).trim() !== "")
+        .map((r, i) => ({
+          row: i + 3, // header อยู่แถว 1 → ข้อมูลเริ่มแถว 2
+          code: String(r[0]).trim(),
+          name: r[1] || "",
+          location: "-",
+          status: "-",
+          note: r[4] || "",
+          date: r[5],
+          time: r[6]
+        }));
 
       setData(mapped);
       setSelectedRows(new Set());
@@ -47,34 +52,36 @@ const WaitTable = () => {
     setData(newData);
 
     const rowId = newData[index].row;
-    setSelectedRows(prev => new Set(prev).add(rowId));
+    setSelectedRows(prev => {
+      const s = new Set(prev);
+      s.add(rowId);
+      return s;
+    });
   };
 
   const toggleSelect = (rowId) => {
-    const newSet = new Set(selectedRows);
-    newSet.has(rowId) ? newSet.delete(rowId) : newSet.add(rowId);
-    setSelectedRows(newSet);
+    const s = new Set(selectedRows);
+    s.has(rowId) ? s.delete(rowId) : s.add(rowId);
+    setSelectedRows(s);
   };
 
   const handleApprove = async () => {
-    const validRows = data.filter(
-      item =>
-        item.code &&
-        String(item.code).trim() !== "" &&
-        selectedRows.has(item.row)
-    );
+    const items = data.filter(item => selectedRows.has(item.row));
+    if (items.length === 0) return;
 
-    if (validRows.length === 0) return;
-
-    const invalid = validRows.find(i => i.location === "-" || i.status === "-");
+    const invalid = items.find(i => i.location === "-" || i.status === "-");
     if (invalid) {
       return Swal.fire('ข้อมูลไม่ครบ', `รหัส ${invalid.code} ยังไม่ได้เลือกที่อยู่หรือสถานะ`, 'warning');
     }
 
-    Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    Swal.fire({
+      title: 'กำลังบันทึก...',
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading()
+    });
 
     try {
-      for (const item of validRows) {
+      for (const item of items) {
         await postAction("LOG", "addLog", {
           "รหัส": item.code,
           "ชื่อ": item.name,
@@ -97,14 +104,11 @@ const WaitTable = () => {
     return val;
   };
 
-  // 🔥 กันผีขั้นสุด
-  const visibleData = data.filter(item => item.code && String(item.code).trim() !== "");
-
   return (
     <div className="card border-0 shadow-sm rounded-4">
       <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center">
         <h5 className="fw-bold text-primary m-0">
-          รายการรอตรวจสอบ ({visibleData.length})
+          รายการรอตรวจสอบ ({data.length})
         </h5>
         <div className="btn-group btn-group-sm">
           <button className="btn btn-outline-secondary" onClick={loadWait}>
@@ -140,7 +144,7 @@ const WaitTable = () => {
               <tr>
                 <td colSpan="8" className="text-center p-4">กำลังโหลด...</td>
               </tr>
-            ) : visibleData.length === 0 ? (
+            ) : data.length === 0 ? (
               <tr>
                 <td colSpan="8" className="text-center py-5 text-muted">
                   <i className="bi bi-inbox fs-1 d-block mb-2"></i>
@@ -148,7 +152,7 @@ const WaitTable = () => {
                 </td>
               </tr>
             ) : (
-              visibleData.map((item) => (
+              data.map((item, idx) => (
                 <tr
                   key={item.row}
                   onClick={() => toggleSelect(item.row)}
@@ -170,7 +174,7 @@ const WaitTable = () => {
                     <select
                       className={`form-select form-select-sm ${item.location === '-' ? 'border-danger' : 'border-success'}`}
                       value={item.location}
-                      onChange={e => handleChange(data.indexOf(item), 'location', e.target.value)}
+                      onChange={e => handleChange(idx, 'location', e.target.value)}
                     >
                       {LOCATIONS.map(l => (
                         <option key={l} value={l}>{l}</option>
@@ -182,7 +186,7 @@ const WaitTable = () => {
                     <select
                       className={`form-select form-select-sm ${item.status === '-' ? 'border-danger' : 'border-success'}`}
                       value={item.status}
-                      onChange={e => handleChange(data.indexOf(item), 'status', e.target.value)}
+                      onChange={e => handleChange(idx, 'status', e.target.value)}
                     >
                       {STATUS_OPTIONS.map(s => (
                         <option key={s} value={s}>{s}</option>
@@ -194,7 +198,7 @@ const WaitTable = () => {
                     <input
                       className="form-control form-control-sm"
                       value={item.note}
-                      onChange={e => handleChange(data.indexOf(item), 'note', e.target.value)}
+                      onChange={e => handleChange(idx, 'note', e.target.value)}
                     />
                   </td>
 
