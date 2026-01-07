@@ -17,21 +17,28 @@ const Login = () => {
     setLoading(false);
 
     if (res.success) {
-  Swal.fire({
-    icon: 'success',
-    title: `ยินดีต้อนรับ ${res.user.name}`,
-    timer: 1500,
-    showConfirmButton: false
-  }).then(() => {
-    // 🔥 ปรับเงื่อนไขตรงนี้ให้รองรับทั้ง sadmin และ admin
-    const userRole = res.user.role.toLowerCase(); // แปลงเป็นตัวเล็กเพื่อกันพลาด
-    if (userRole === 'admin' || userRole === 'sadmin') {
-      navigate('/admin');
+      Swal.fire({
+        icon: 'success',
+        title: `ยินดีต้อนรับ ${res.user.name}`,
+        timer: 1500,
+        showConfirmButton: false
+      }).then(() => {
+        const userRole = res.user.role.toLowerCase(); 
+        // เช็คสิทธิ์ admin หรือ sadmin เพื่อไปหน้า /admin
+        if (userRole === 'admin' || userRole === 'sadmin') {
+          navigate('/admin');
+        } else {
+          navigate('/user');
+        }
+      });
     } else {
-      navigate('/user');
+      Swal.fire({
+        icon: 'error',
+        title: 'เข้าสู่ระบบไม่สำเร็จ',
+        text: res.message
+      });
     }
-  });
-};
+  };
 
   return (
     <div className="d-flex align-items-center justify-content-center min-vh-100 bg-light">
@@ -75,5 +82,5 @@ const Login = () => {
     </div>
   );
 };
-}
+
 export default Login;
