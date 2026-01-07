@@ -6,6 +6,7 @@ import { SHEET_NAMES } from '../../config/config';
 const UserTable = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [selectedRows, setSelectedRows] = useState(new Set());
   
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('add');
@@ -15,20 +16,42 @@ const UserTable = () => {
     setLoading(true);
     try {
       const rows = await fetchSheetData(SHEET_NAMES.LOGIN || "LOGIN");
-      // Mapping: [0:ID, 1:Pass, 2:Role, 3:Name]
-      const mapped = rows.map((r, i) => ({ 
-        row: i + 2, 
-        id: r[0], 
-        pass: r[1], 
-        role: r[2],
-        name: r[3] 
-      }));
+      const mapped = rows
+        .filter(r => r[0] && String(r[0]).trim() !== "") // กรองแถวว่าง
+        .map((r, i) => ({ 
+          row: i + 2, 
+          id: r[0], 
+          pass: r[1], 
+          role: r[2],
+          name: r[3] 
+        }));
       setData(mapped);
+      setSelectedRows(new Set());
     } catch(e) { console.error(e); }
     setLoading(false);
   };
 
   useEffect(() => { loadUsers(); }, []);
+
+  const toggleSelect = (rowId) => {
+    const newSet = new Set(selectedRows);
+    if (newSet.has(rowId)) newSet.delete(rowId); else newSet.add(rowId);
+    setSelectedRows(newSet);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedRows.size === 0) return;
+    const res = await Swal.fire({ title: `ลบ ${selectedRows.size} รายการที่เลือก?`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33' });
+    if (res.isConfirmed) {
+      Swal.fire({ title: 'กำลังลบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+      const sortedRows = Array.from(selectedRows).sort((a, b) => b - a);
+      for (const row of sortedRows) {
+        await postAction("LOGIN", "delete", { row });
+      }
+      Swal.fire('สำเร็จ', 'ลบรายการที่เลือกแล้ว', 'success');
+      loadUsers();
+    }
+  };
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -45,30 +68,11 @@ const UserTable = () => {
     if (modalMode === 'add') {
         await postAction("LOGIN", "add", payload);
     } else {
-        await postAction("LOGIN", "edit", {
-            ...payload,
-            row: currentUser.row
-        });
+        await postAction("LOGIN", "edit", { ...payload, row: currentUser.row });
     }
 
     Swal.fire('สำเร็จ', '', 'success');
     loadUsers();
-  };
-
-  const handleDelete = async (row) => {
-    const res = await Swal.fire({ title: 'ลบสมาชิก?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33' });
-    if (res.isConfirmed) {
-      Swal.fire({ title: 'กำลังลบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-      await postAction("LOGIN", "delete", { row });
-      Swal.fire('ลบแล้ว', '', 'success');
-      loadUsers();
-    }
-  };
-
-  const openAdd = () => {
-    setCurrentUser({ id: '', pass: '', name: '', role: 'user' });
-    setModalMode('add');
-    setShowModal(true);
   };
 
   const openEdit = (u) => {
@@ -80,40 +84,38 @@ const UserTable = () => {
   return (
     <div className="card border-0 shadow-sm rounded-4">
       <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-        <h5 className="fw-bold text-primary m-0">จัดการสมาชิก</h5>
-        <div>
-            <button className="btn btn-outline-secondary btn-sm me-2" onClick={loadUsers}><i className="bi bi-arrow-clockwise"></i> รีเฟรช</button>
-            <button className="btn btn-primary btn-sm" onClick={openAdd}>+ เพิ่มสมาชิก</button>
+        <h5 className="fw-bold text-primary m-0">จัดการสมาชิก ({selectedRows.size})</h5>
+        <div className="btn-group btn-group-sm">
+            <button className="btn btn-outline-secondary" onClick={loadUsers}><i className="bi bi-arrow-clockwise"></i> รีเฟรช</button>
+            {selectedRows.size > 0 && <button className="btn btn-danger" onClick={handleBulkDelete}><i className="bi bi-trash"></i> ลบที่เลือก</button>}
+            <button className="btn btn-primary" onClick={() => { setCurrentUser({ id: '', pass: '', name: '', role: 'user' }); setModalMode('add'); setShowModal(true); }}>+ เพิ่มสมาชิก</button>
         </div>
       </div>
       <div className="table-responsive p-3">
         <table className="table table-hover align-middle">
           <thead className="table-light">
             <tr>
-              <th width="5%">เลือก</th>
+              <th width="40"><i className="bi bi-check2-square"></i></th>
               <th width="20%">ID (Username)</th>
-              <th width="20%">Password</th> {/* เพิ่มคอลัมน์ Password */}
+              <th width="20%">Password</th>
               <th width="25%">Name (ชื่อ-สกุล)</th>
               <th width="15%">Role (สิทธิ์)</th>
-              <th width="15%" className="text-center">จัดการ</th>
+              <th width="10%" className="text-center">จัดการ</th>
             </tr>
           </thead>
           <tbody>
             {loading ? <tr><td colSpan="6" className="text-center p-4">กำลังโหลด...</td></tr> :
              data.map((u, i) => (
-              <tr key={i}>
-                <td><input type="checkbox" className="form-check-input"/></td>
-                <td className="fw-bold text-primary">{u.id}</td>
-                <td className="text-muted">{u.pass}</td> {/* แสดง Password */}
-                <td>{u.name}</td>
-                <td>
-                    <span className={`badge rounded-pill ${u.role==='admin'?'bg-danger':'bg-info text-dark'}`}>
-                        {u.role}
-                    </span>
+              <tr key={i} onClick={() => toggleSelect(u.row)} style={{cursor:'pointer'}}>
+                <td onClick={e => e.stopPropagation()}>
+                    <input type="checkbox" className="form-check-input" checked={selectedRows.has(u.row)} onChange={() => toggleSelect(u.row)} />
                 </td>
-                <td className="text-center">
-                    <button className="btn btn-warning btn-sm me-1 text-dark" onClick={() => openEdit(u)}><i className="bi bi-pencil"></i></button>
-                    <button className="btn btn-danger btn-sm" onClick={() => handleDelete(u.row)}><i className="bi bi-trash"></i></button>
+                <td className="fw-bold text-primary">{u.id}</td>
+                <td className="text-muted">{u.pass}</td>
+                <td>{u.name}</td>
+                <td><span className={`badge rounded-pill ${u.role==='admin'?'bg-danger':'bg-info text-dark'}`}>{u.role}</span></td>
+                <td className="text-center" onClick={e => e.stopPropagation()}>
+                    <button className="btn btn-warning btn-sm text-dark me-1" onClick={() => openEdit(u)}><i className="bi bi-pencil"></i></button>
                 </td>
               </tr>
             ))}
@@ -121,7 +123,7 @@ const UserTable = () => {
         </table>
       </div>
 
-      {/* Modal Add/Edit */}
+      {/* Modal Add/Edit โค้ดส่วนเดิมคงไว้ */}
       {showModal && (
         <div className="modal fade show d-block" style={{background: 'rgba(0,0,0,0.5)'}}>
             <div className="modal-dialog modal-dialog-centered">
