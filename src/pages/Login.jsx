@@ -12,7 +12,6 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     
-    // เรียกใช้ AuthService
     const res = await AuthService.login(inputs.username, inputs.password);
     
     setLoading(false);
@@ -24,9 +23,12 @@ const Login = () => {
         timer: 1500,
         showConfirmButton: false
       }).then(() => {
-        // แยกหน้า Admin / User
-        if (res.user.role === 'admin') navigate('/admin');
-        else navigate('/user');
+        // 🔥 แก้ไขตรงนี้: ให้ทั้ง sadmin และ admin ไปที่หน้า /admin
+        if (res.user.role === 'admin' || res.user.role === 'sadmin') {
+          navigate('/admin');
+        } else {
+          navigate('/user');
+        }
       });
     } else {
       Swal.fire('ผิดพลาด', res.message, 'error');
