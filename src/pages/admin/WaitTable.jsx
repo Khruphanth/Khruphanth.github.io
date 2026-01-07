@@ -7,7 +7,7 @@ import { SHEET_NAMES } from '../../config/config';
 const WaitTable = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [selectedRows, setSelectedRows] = useState(new Set()); // เก็บสถานะการเลือก Checkbox
+  const [selectedRows, setSelectedRows] = useState(new Set());
 
   const LOCATIONS = ["-", "501", "502", "503", "401", "401A", "401B", "401C", "402", "403", "404", "405", "ห้องพักครู", "301", "302"];
   const STATUS_OPTIONS = ["-", "ใช้งานได้", "ชำรุด", "ส่งซ่อม", "เสื่อมสภาพ"];
@@ -16,9 +16,9 @@ const WaitTable = () => {
     setLoading(true);
     try {
       const rows = await fetchSheetData(SHEET_NAMES.WAIT || "WAIT");
-      // 🔥 กรองแถวว่าง (ตรวจสอบจากคอลัมน์รหัส r[0])
+      // กรองแถวว่าง (เช็คว่าต้องมีรหัส r[0])
       const mapped = rows
-        .filter(r => r[0] && String(r[0]).trim() !== "") 
+        .filter(r => r[0] && String(r[0]).trim() !== "")
         .map((r, i) => ({
           row: i + 2,
           code: r[0], 
@@ -27,10 +27,10 @@ const WaitTable = () => {
           status: "-",   
           note: r[4] || "", 
           date: r[5], 
-          time: r[6] 
+          time: r[6]
         }));
       setData(mapped);
-      setSelectedRows(new Set()); // รีเซ็ตการเลือกเมื่อโหลดใหม่
+      setSelectedRows(new Set());
     } catch (e) {
       console.error(e);
       Swal.fire('Error', 'โหลดข้อมูลไม่สำเร็จ', 'error');
@@ -45,7 +45,7 @@ const WaitTable = () => {
     newData[index][field] = value;
     setData(newData);
 
-    // 🔥 ระบบติ๊กถูกอัตโนมัติเมื่อมีการเปลี่ยนค่า
+    // ติ๊กถูกอัตโนมัติเมื่อมีการเปลี่ยนแปลงข้อมูล
     const rowId = newData[index].row;
     if (!selectedRows.has(rowId)) {
       setSelectedRows(prev => {
@@ -63,39 +63,25 @@ const WaitTable = () => {
   };
 
   const handleApprove = async () => {
-    // กรองเอาเฉพาะแถวที่ถูกติ๊กเลือกไว้
     const itemsToApprove = data.filter(item => selectedRows.has(item.row));
+    if (itemsToApprove.length === 0) return Swal.fire('เตือน', 'กรุณาเลือกรายการ', 'warning');
     
-    if (itemsToApprove.length === 0) return Swal.fire('เตือน', 'กรุณาเลือกรายการที่ต้องการอนุมัติ', 'warning');
-    
-    // ตรวจสอบความครบถ้วนของข้อมูลที่เลือก
-    const invalidItem = itemsToApprove.find(i => i.location === "-" || i.status === "-");
-    if (invalidItem) {
-      Swal.fire('ข้อมูลไม่ครบ', `รหัส ${invalidItem.code} ยังไม่ได้เลือกที่อยู่หรือสถานะ`, 'warning');
-      return;
-    }
-    
+    const invalid = itemsToApprove.find(i => i.location === "-" || i.status === "-");
+    if (invalid) return Swal.fire('ข้อมูลไม่ครบ', `รหัส ${invalid.code} ยังไม่ได้เลือกที่อยู่หรือสถานะ`, 'warning');
+
     Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-    
     try {
       for (const item of itemsToApprove) {
-        // 1. บันทึกลงหน้า LOG
         await postAction("LOG", "addLog", {
-          "รหัส": item.code, 
-          "ชื่อ": item.name, 
-          "ที่อยู่": item.location,
-          "สถานะ": item.status, 
-          "หมายเหตุ": item.note
+          "รหัส": item.code, "ชื่อ": item.name, "ที่อยู่": item.location,
+          "สถานะ": item.status, "หมายเหตุ": item.note
         });
-        // 2. ลบออกจากหน้า WAIT
         await postAction("WAIT", "delete", { row: item.row });
       }
-      
-      Swal.fire('สำเร็จ', `อนุมัติทั้งหมด ${itemsToApprove.length} รายการเรียบร้อย`, 'success');
+      Swal.fire('สำเร็จ', `อนุมัติ ${itemsToApprove.length} รายการเรียบร้อย`, 'success');
       loadWait();
     } catch (e) {
-      console.error(e);
-      Swal.fire('Error', 'เกิดข้อผิดพลาดในการบันทึก', 'error');
+      Swal.fire('Error', 'บันทึกไม่สำเร็จ', 'error');
     }
   };
 
@@ -110,12 +96,8 @@ const WaitTable = () => {
       <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center">
         <h5 className="fw-bold text-primary m-0">รายการรอตรวจสอบ ({selectedRows.size})</h5>
         <div className="btn-group btn-group-sm">
-          <button className="btn btn-outline-secondary" onClick={loadWait}>
-              <i className="bi bi-arrow-clockwise"></i> รีเฟรช
-          </button>
-          <button className="btn btn-success" onClick={handleApprove} disabled={selectedRows.size === 0}>
-              <i className="bi bi-check-lg"></i> อนุมัติรายการที่เลือก
-          </button>
+          <button className="btn btn-outline-secondary" onClick={loadWait}><i className="bi bi-arrow-clockwise"></i> รีเฟรช</button>
+          <button className="btn btn-success" onClick={handleApprove} disabled={selectedRows.size === 0}><i className="bi bi-check-lg"></i> อนุมัติที่เลือก</button>
         </div>
       </div>
       <div className="table-responsive p-3">
@@ -136,44 +118,34 @@ const WaitTable = () => {
             {loading ? (
               <tr><td colSpan="8" className="text-center p-4">กำลังโหลด...</td></tr>
             ) : data.length === 0 ? (
-              <tr><td colSpan="8" className="text-center p-4 text-muted">ไม่พบข้อมูล</td></tr>
+              <tr>
+                <td colSpan="8" className="text-center py-5 text-muted">
+                  <i className="bi bi-inbox fs-1 d-block mb-2"></i>
+                  ไม่พบข้อมูลรายการรอตรวจสอบ
+                </td>
+              </tr>
             ) : (
               data.map((item, idx) => (
                 <tr key={idx} onClick={() => toggleSelect(item.row)} style={{cursor: 'pointer'}}>
                   <td onClick={e => e.stopPropagation()}>
-                    <input 
-                      type="checkbox" 
-                      className="form-check-input" 
-                      checked={selectedRows.has(item.row)} 
-                      onChange={() => toggleSelect(item.row)} 
-                    />
+                    <input type="checkbox" className="form-check-input" checked={selectedRows.has(item.row)} onChange={() => toggleSelect(item.row)} />
                   </td>
                   <td className="fw-bold">{item.code}</td>
                   <td>{item.name}</td>
                   <td onClick={e => e.stopPropagation()}>
-                    <select 
-                      className={`form-select form-select-sm ${item.location === '-' ? 'border-danger' : 'border-success'}`}
-                      value={item.location} 
-                      onChange={e => handleChange(idx, 'location', e.target.value)}
-                    >
+                    <select className={`form-select form-select-sm ${item.location === '-' ? 'border-danger' : 'border-success'}`}
+                      value={item.location} onChange={e => handleChange(idx, 'location', e.target.value)}>
                       {LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
                     </select>
                   </td>
                   <td onClick={e => e.stopPropagation()}>
-                    <select 
-                      className={`form-select form-select-sm ${item.status === '-' ? 'border-danger' : 'border-success'}`}
-                      value={item.status} 
-                      onChange={e => handleChange(idx, 'status', e.target.value)}
-                    >
+                    <select className={`form-select form-select-sm ${item.status === '-' ? 'border-danger' : 'border-success'}`}
+                      value={item.status} onChange={e => handleChange(idx, 'status', e.target.value)}>
                       {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </td>
                   <td onClick={e => e.stopPropagation()}>
-                    <input 
-                      className="form-control form-control-sm" 
-                      value={item.note} 
-                      onChange={e => handleChange(idx, 'note', e.target.value)}
-                    />
+                    <input className="form-control form-control-sm" value={item.note} onChange={e => handleChange(idx, 'note', e.target.value)}/>
                   </td>
                   <td>{formatDate(item.date)}</td>
                   <td>{renderTime(item.time)}</td>
