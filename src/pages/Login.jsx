@@ -26,7 +26,7 @@ const Login = () => {
         // ดึง role มาใช้งานโดยตรง (เพราะใน auth.js ทำ lowerCase มาให้แล้ว)
         const userRole = res.user.role;
         
-        if(userRole.includes('admin') || userRole.includes('owner')) {
+        if(userRole.includes('owner') || userRole.includes('admin')) {
           navigate('/admin');
         } else {
           navigate('/user');
