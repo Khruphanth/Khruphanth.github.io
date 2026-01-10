@@ -14,14 +14,15 @@ export const AuthService = {
       const rows = await fetchSheetData(SHEET_NAMES.LOGIN || "LOGIN");
 
       const users = rows.map(r => ({
-        username: String(r[0] || "").trim().toLowerCase(),
+        username: String(r[0] || "").trim(),
         password: String(r[1] || "").trim(),
-        role: String(r[2] || "").trim().toLowerCase(),
+        role: String(r[2] || "").trim().toLowerCase(), // บังคับเป็นตัวพิมพ์เล็กเพื่อเช็คง่าย
         name: String(r[3] || "").trim()
-      })).filter(u => u.username && u.password);
+      }));
 
+      // ตรวจสอบค่าโดยไม่สนตัวพิมพ์เล็ก-ใหญ่ของ username
       const found = users.find(u =>
-        u.username === username.toLowerCase().trim() &&
+        u.username.toLowerCase() === username.trim().toLowerCase() &&
         u.password === password.trim()
       );
 
@@ -32,7 +33,7 @@ export const AuthService = {
       const userData = {
         username: found.username,
         name: found.name,
-        role: found.role
+        role: found.role // จะได้ค่า 'sadmin' หรือ 'admin' ที่เป็นตัวเล็กชัวร์ๆ
       };
 
       localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
@@ -48,7 +49,6 @@ export const AuthService = {
       return { success: false, message: "ระบบมีปัญหา" };
     }
   },
-
   /* =========================
      GET CURRENT USER + AUTO LOGOUT
   ========================= */
