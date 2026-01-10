@@ -89,16 +89,18 @@ export const AuthService = {
    🔐 AUTH GUARD (ADMIN & SADMIN)
 ========================= */
 export function requireAdmin() {
-  const user = AuthService.getUser();
-  if (!user) {
-    window.location.replace('/');
+  const raw = localStorage.getItem("user");
+  if (!raw) {
+    window.location.replace("/");
     return false;
   }
 
-  const role = user.role.toLowerCase().trim();
+  const user = JSON.parse(raw);
+  const role = user.role?.toLowerCase()?.trim();
 
-  if (role !== 'admin' && role !== 'sadmin') {
-    window.location.replace('/user');
+  // admin + sadmin เท่านั้น
+  if (role !== "admin" && role !== "sadmin") {
+    window.location.replace("/user");
     return false;
   }
 
