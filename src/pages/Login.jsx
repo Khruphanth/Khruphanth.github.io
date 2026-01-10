@@ -23,8 +23,8 @@ const Login = () => {
         timer: 1500,
         showConfirmButton: false
       }).then(() => {
-        // ใช้ .trim() เพื่อตัดช่องว่าง และ .toLowerCase() เพื่อให้เปรียบเทียบค่าได้แม่นยำ
-        const userRole = res.user.role.trim().toLowerCase();
+        // ดึง role มาใช้งานโดยตรง (เพราะใน auth.js ทำ lowerCase มาให้แล้ว)
+        const userRole = res.user.role;
         
         if (userRole === 'admin' || userRole === 'sadmin') {
           navigate('/admin');
