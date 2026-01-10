@@ -92,7 +92,7 @@ export function requireAdmin() {
   const user = AuthService.getCurrentUser();
 
   // ปรับเงื่อนไขให้ยอมรับทั้ง "admin" และ "sadmin"
-  if (!user || (user.role !== "admin" && user.role !== "owner")) {
+  if (!user || (user.role !== "admin" && user.role !== "sadmin")) {
     window.location.replace("/");
     return false;
   }
