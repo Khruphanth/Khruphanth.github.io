@@ -91,12 +91,22 @@ export const AuthService = {
 export function requireAdmin() {
   const user = AuthService.getCurrentUser();
 
-  // ปรับเงื่อนไขให้ยอมรับทั้ง "admin" และ "sadmin"
-  if (!user || (user.role !== "admin" && user.role !== "sadmin")) {
+  if (!user) {
     window.location.replace("/");
     return false;
   }
-  return true;
+
+  // ใช้ if ซ้อน if ตามที่ต้องการ
+  if (user.role === "admin") {
+    return true;
+  } else {
+    if (user.role === "sadmin") {
+      return true;
+    } else {
+      window.location.replace("/"); // ถ้าไม่ใช่ทั้งคู่ ให้ดีดออก
+      return false;
+    }
+  }
 }
 
 /* =========================
