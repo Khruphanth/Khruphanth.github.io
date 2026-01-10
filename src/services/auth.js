@@ -16,7 +16,7 @@ export const AuthService = {
       const users = rows.map(r => ({
         username: String(r[0] || "").trim(),
         password: String(r[1] || "").trim(),
-        role: String(r[2] || "").trim().toLowerCase(), // บังคับเป็นตัวพิมพ์เล็กเพื่อเช็คง่าย
+        role: String(r[2] || "").trim(),
         name: String(r[3] || "").trim()
       }));
 

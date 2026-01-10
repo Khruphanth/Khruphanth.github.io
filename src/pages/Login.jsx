@@ -23,7 +23,7 @@ const Login = () => {
         timer: 1500,
         showConfirmButton: false
       }).then(() => {
-        const userRole = res.user.role.trim().toLowerCase();
+        const userRole = res.user.role.trim();
         
         if (userRole === 'admin') {
           navigate('/admin');
