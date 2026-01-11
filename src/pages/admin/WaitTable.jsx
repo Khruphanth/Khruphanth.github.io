@@ -52,6 +52,7 @@ const WaitTable = () => {
     }
   };
 
+  // แก้ไขฟังก์ชัน toggleSelect ให้รับ row ตรงๆ
   const toggleSelect = (rowId) => {
     const newSet = new Set(selectedRows);
     if (newSet.has(rowId)) newSet.delete(rowId); else newSet.add(rowId);
@@ -68,13 +69,18 @@ const WaitTable = () => {
     Swal.fire({ title: 'กำลังอนุมัติ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     try {
       for (const item of itemsToApprove) {
-        // 1. ส่งข้อมูลไปหน้า LOG (ใช้ชื่อคีย์ภาษาไทยตามที่ Script รับ)
+        // 1. ส่งไป LOG
         await postAction("LOG", "addLog", {
+          "sheet": "LOG", // ระบุชื่อชีท
           "รหัส": item.code, "ชื่อ": item.name, "ที่อยู่": item.location,
           "สถานะ": item.status, "หมายเหตุ": item.note
         });
-        // 2. ลบออกจากหน้า WAIT
-        await postAction("WAIT", "delete", { row: item.row });
+        // 2. ลบออกจาก WAIT (ต้องระบุ sheet ให้ GAS รู้)
+        await postAction("WAIT", "delete", { 
+          "action": "delete", 
+          "sheet": "WAIT", 
+          "row": item.row 
+        });
       }
       Swal.fire('สำเร็จ', `อนุมัติเรียบร้อย`, 'success');
       loadWait();
