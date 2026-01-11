@@ -3,12 +3,8 @@ import { fetchScriptData } from '../services/api';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-// รหัสฟอนต์ TH Sarabun New (Base64) - ฝังไว้ในไฟล์เลยตามคำขอ
-const THSarabunNew_Base64 = "AAEAAAASABAAAwAwR0RFRv7S/08AAAHsAAAAQkdQT1MAAAAAAAACDAAAADhHU1VCAAAAAAAAAnwAAABmT1MvMg8SDR8AAAGMAAAAYmNtYXDp69S2AAACVAAAAExjdnQgAAAAAAADnAAAAARnYXNwAAAAAAADmAAAAAhtZWRpA... (ข้อมูลฟอนต์จะยาวมาก ให้คุณนำ Base64 จากลิงก์ด้านล่างมาแปะแทนจุดนี้) ...";
-
-// หมายเหตุ: เนื่องจากรหัส Base64 ของฟอนต์ยาวเกินที่หน้าจอแชทจะแสดงหมด 
-// ให้คุณก๊อปปี้รหัสจากลิงก์นี้มาใส่แทนในตัวแปรด้านบนครับ: 
-// https://raw.githubusercontent.com/id61023/thai-fonts-base64/master/THSarabunNew.txt
+// นำรหัส Base64 จากลิงก์มาวางในเครื่องหมาย " " ห้ามมีช่องว่างหรือขึ้นบรรทัดใหม่
+const fontBase64 = "AAEAAA... (วางรหัสที่นี่) ...";
 
 const Report = () => {
   const [data, setData] = useState([]);
@@ -32,86 +28,76 @@ const Report = () => {
   };
 
   const exportPDF = () => {
-    const doc = new jsPDF('p', 'mm', 'a4');
+    try {
+      const doc = new jsPDF('p', 'mm', 'a4');
 
-    // --- ส่วนฝังฟอนต์ ---
-    doc.addFileToVFS("THSarabunNew.ttf", THSarabunNew_Base64);
-    doc.addFont("THSarabunNew.ttf", "THSarabunNew", "normal");
-    doc.setFont("THSarabunNew");
+      // 1. ลงทะเบียนฟอนต์ไทย (ต้องสะอาด ไม่มีตัวอักษรนอก range Latin1)
+      doc.addFileToVFS("ThaiFont.ttf", fontBase64);
+      doc.addFont("ThaiFont.ttf", "ThaiFont", "normal");
+      doc.setFont("ThaiFont");
 
-    // --- ส่วนหัวกระดาษ (ภาษาไทยชัดเจน) ---
-    doc.setFontSize(20);
-    doc.text("ใบรายงานสรุปข้อมูลครุภัณฑ์", 105, 15, { align: "center" });
-    
-    doc.setFontSize(14);
-    doc.text("มหาวิทยาลัยเทคโนโลยีราชมงคลอีสาน วิทยาเขตขอนแก่น", 105, 23, { align: "center" });
-    doc.text("คณะครุศาสตร์อุตสาหกรรม / สาขาเทคนิคครุศาสตร์อุตสาหกรรม คอมพิวเตอร์", 105, 30, { align: "center" });
-    
-    doc.setLineWidth(0.2);
-    doc.line(15, 35, 195, 35);
+      // 2. วาดหัวกระดาษ (แสดงเฉพาะหน้าแรก)
+      doc.setFontSize(18);
+      doc.text("ใบรายงานสรุปข้อมูลครุภัณฑ์", 105, 15, { align: "center" });
+      doc.setFontSize(12);
+      doc.text("มหาวิทยาลัยเทคโนโลยีราชมงคลอีสาน วิทยาเขตขอนแก่น", 105, 22, { align: "center" });
+      doc.text("คณะครุศาสตร์อุตสาหกรรม / สาขาเทคนิคครุศาสตร์อุตสาหกรรม คอมพิวเตอร์", 105, 28, { align: "center" });
 
-    const columns = [
-      { header: 'ลำดับ', dataKey: 'index' },
-      { header: 'รหัสครุภัณฑ์', dataKey: 'code' },
-      { header: 'ชื่อครุภัณฑ์', dataKey: 'name' },
-      { header: 'ที่เก็บ', dataKey: 'location' },
-      { header: 'สถานะ', dataKey: 'status' }
-    ];
+      const columns = [
+        { header: 'ลำดับ', dataKey: 'index' },
+        { header: 'รหัสครุภัณฑ์', dataKey: 'code' },
+        { header: 'รายการ / ชื่อครุภัณฑ์', dataKey: 'name' },
+        { header: 'ที่เก็บ', dataKey: 'location' },
+        { header: 'สถานะ', dataKey: 'status' }
+      ];
 
-    const rows = data.map((item, idx) => ({
-      index: idx + 1,
-      code: item["รหัสครุภัณฑ์"],
-      name: item["ชื่อครุภัณฑ์"],
-      location: item["ที่เก็บ"],
-      status: item["สถานะ"]
-    }));
+      const rows = data.map((item, idx) => ({
+        index: idx + 1,
+        code: item["รหัสครุภัณฑ์"],
+        name: item["ชื่อครุภัณฑ์"],
+        location: item["ที่เก็บ"],
+        status: item["สถานะ"]
+      }));
 
-    // --- ส่วนตาราง (ใช้ฟอนต์ไทย) ---
-    autoTable(doc, {
-      startY: 40,
-      columns: columns,
-      body: rows,
-      theme: 'grid',
-      styles: { font: "THSarabunNew", fontSize: 12 },
-      headStyles: { fillColor: [52, 73, 94], textColor: 255, halign: 'center' },
-      columnStyles: {
-        index: { halign: 'center', cellWidth: 15 },
-        location: { halign: 'center', cellWidth: 20 },
-        status: { halign: 'center', cellWidth: 25 }
-      },
-      didDrawPage: (d) => {
-        doc.setFontSize(10);
-        doc.text(`หน้า ${doc.internal.getNumberOfPages()}`, 190, 285);
-      }
-    });
+      // 3. วาดตาราง (ใช้ฟอนต์ไทย)
+      autoTable(doc, {
+        startY: 35,
+        columns: columns,
+        body: rows,
+        theme: 'grid',
+        styles: { font: "ThaiFont", fontSize: 11 },
+        headStyles: { fillColor: [240, 240, 240], textColor: 0, font: "ThaiFont" },
+        didDrawPage: (d) => {
+          doc.setFontSize(10);
+          doc.text(`หน้า ${doc.internal.getNumberOfPages()}`, 190, 285, { align: 'right' });
+        }
+      });
 
-    // --- ส่วนลงนามท้ายแผ่นสุดท้าย ---
-    const finalY = doc.lastAutoTable.finalY + 15;
-    doc.setFontSize(14);
-    doc.text("ลงชื่อ......................................................ผู้รายงาน", 130, finalY);
-    doc.text("(......................................................)", 130, finalY + 10);
-
-    doc.save(`ใบรายงาน_${Date.now()}.pdf`);
+      doc.save(`ใบรายงาน_${Date.now()}.pdf`);
+    } catch (error) {
+      console.error("PDF Export Error:", error);
+      alert("เกิดข้อผิดพลาดในการสร้าง PDF: " + error.message);
+    }
   };
 
   return (
     <div className="card shadow-sm p-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h5 className="fw-bold">ระบบออกใบรายงาน (PDF คมชัดสูง)</h5>
-        <button className="btn btn-success btn-lg" onClick={exportPDF} disabled={loading}>
-          {loading ? 'กำลังโหลดข้อมูล...' : 'พิมพ์ใบรายงาน PDF'}
+        <h5 className="fw-bold">พรีวิวใบรายงาน</h5>
+        <button className="btn btn-primary btn-lg" onClick={exportPDF} disabled={loading || !data.length}>
+          {loading ? 'กำลังโหลด...' : 'ดาวน์โหลด PDF (ไทย)'}
         </button>
       </div>
 
-      {/* ตารางพรีวิวบนหน้าเว็บ */}
-      <div className="table-responsive border" style={{ maxHeight: '500px' }}>
-        <table className="table table-hover table-bordered m-0">
-          <thead className="table-light text-center">
+      {/* ตารางแสดงตัวอย่างบนหน้าจอ */}
+      <div className="table-responsive border" style={{ maxHeight: '600px' }}>
+        <table className="table table-hover m-0">
+          <thead className="table-secondary sticky-top">
             <tr>
-              <th>ลำดับ</th>
+              <th className="text-center">ลำดับ</th>
               <th>รหัสครุภัณฑ์</th>
               <th>ชื่อครุภัณฑ์</th>
-              <th>สถานะ</th>
+              <th className="text-center">สถานะ</th>
             </tr>
           </thead>
           <tbody>
@@ -120,7 +106,11 @@ const Report = () => {
                 <td className="text-center">{idx + 1}</td>
                 <td>{row["รหัสครุภัณฑ์"]}</td>
                 <td>{row["ชื่อครุภัณฑ์"]}</td>
-                <td className="text-center">{row["สถานะ"]}</td>
+                <td className="text-center">
+                  <span className={`badge ${row["สถานะ"] === 'ชำรุด' ? 'bg-danger' : 'bg-success'}`}>
+                    {row["สถานะ"]}
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>
