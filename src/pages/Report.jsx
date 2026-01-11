@@ -5,7 +5,7 @@ import autoTable from 'jspdf-autotable';
 
 // ห้ามมีช่องว่างในเครื่องหมาย " " และห้ามมี data:font/ttf;base64, นำหน้า
 // แนะนำให้ก๊อปใหม่จากลิงก์: https://raw.githubusercontent.com/id61023/thai-fonts-base64/master/THSarabunNew.txt
-const rawFontBase64 = "https://raw.githubusercontent.com/id61023/thai-fonts-base64/master/THSarabunNew.txt";
+const rawFontBase64 = "https://fonts.google.com/specimen/Sarabun";
 
 const Report = () => {
   const [data, setData] = useState([]);
