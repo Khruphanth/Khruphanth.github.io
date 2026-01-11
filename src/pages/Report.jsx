@@ -14,7 +14,7 @@ const Report = () => {
     try {
       const res = await fetchScriptData("SHOW");
       if (Array.isArray(res)) {
-        // กรองแถวที่มีค่า #N/A หรือ รหัสว่างออก 
+        // กรองข้อมูลขยะและค่า #N/A ออกให้หมด
         const cleanData = res.filter(row => {
           const id = String(row["รหัสครุภัณฑ์"] || "");
           const name = String(row["ชื่อครุภัณฑ์"] || "");
@@ -27,37 +27,49 @@ const Report = () => {
   };
 
   const loadFont = async () => {
-    const response = await fetch('/fonts/Sarabun-Regular.ttf');
-    const blob = await response.blob();
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result.split(',')[1]);
-      reader.readAsDataURL(blob);
-    });
+    try {
+      const response = await fetch('/fonts/Sarabun-Regular.ttf');
+      if (!response.ok) throw new Error("File not found");
+      const arrayBuffer = await response.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = '';
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return window.btoa(binary);
+    } catch (e) {
+      console.error("Font loading failed", e);
+      return null;
+    }
   };
 
   const exportPDF = async () => {
     setLoading(true);
+    const fontBase64 = await loadFont();
+    
+    if (!fontBase64) {
+      alert("ไม่พบไฟล์ฟอนต์ใน public/fonts/Sarabun-Regular.ttf");
+      setLoading(false);
+      return;
+    }
+
     try {
       const doc = new jsPDF('p', 'mm', 'a4');
-      const fontBase64 = await loadFont();
 
-      // ลงทะเบียนฟอนต์
+      // 1. ลงทะเบียนฟอนต์และตั้งค่าเป็น Default ของทั้งเอกสาร
       doc.addFileToVFS("Sarabun.ttf", fontBase64);
       doc.addFont("Sarabun.ttf", "Sarabun", "normal");
-      doc.setFont("Sarabun");
+      doc.setFont("Sarabun"); // บังคับใช้ฟอนต์นี้ทันที
 
-      // หัวกระดาษ (พิมพ์ภาษาไทย) [cite: 75, 76]
+      // 2. พิมพ์หัวข้อกระดาษ
       doc.setFontSize(18);
       doc.text("ใบรายงานสรุปข้อมูลครุภัณฑ์", 105, 15, { align: "center" });
       doc.setFontSize(12);
       doc.text("มหาวิทยาลัยเทคโนโลยีราชมงคลอีสาน วิทยาเขตขอนแก่น", 105, 22, { align: "center" });
-      doc.setFontSize(10);
-      doc.text("คณะครุศาสตร์อุตสาหกรรม / สาขาเทคนิคครุศาสตร์อุตสาหกรรม คอมพิวเตอร์", 105, 28, { align: "center" });
 
-      // ตาราง [cite: 77, 79, 81]
+      // 3. วาดตารางโดยใช้ฟังก์ชัน autoTable (วิธีนี้ชัวร์ที่สุด)
       autoTable(doc, {
-        startY: 35,
+        startY: 30,
         head: [['ลำดับ', 'รหัสครุภัณฑ์', 'รายการครุภัณฑ์', 'สถานที่เก็บ', 'สถานะ']],
         body: data.map((item, idx) => [
           idx + 1,
@@ -66,79 +78,40 @@ const Report = () => {
           item["ที่เก็บ"] || "-",
           item["สถานะ"] || "ปกติ"
         ]),
-        theme: 'grid',
-        // ตั้งค่าฟอนต์ไทยให้ "ทั้งตาราง" (รวมหัวตาราง) 
-        styles: { font: "Sarabun", fontSize: 10, cellPadding: 2 },
+        // บังคับฟอนต์ "Sarabun" ในทุกส่วนของตาราง
+        styles: { 
+          font: "Sarabun", 
+          fontSize: 10,
+          halign: 'left'
+        },
         headStyles: { 
-          font: "Sarabun", // แก้ปัญหาเอเลี่ยนที่หัวตาราง
+          font: "Sarabun", // บังคับฟอนต์ที่หัวตาราง
+          fontStyle: 'normal', // ป้องกันมันเปลี่ยนเป็น Bold แล้วหาฟอนต์ไม่เจอ
           fillColor: [240, 240, 240], 
-          textColor: 0, 
-          halign: 'center' 
+          textColor: 0,
+          halign: 'center'
         },
-        columnStyles: {
-          0: { halign: 'center', cellWidth: 12 },
-          1: { cellWidth: 45 },
-          4: { halign: 'center', cellWidth: 20 }
-        },
+        theme: 'grid',
         didDrawPage: (d) => {
           doc.setFontSize(8);
           doc.text(`หน้า ${doc.internal.getNumberOfPages()}`, 190, 285, { align: 'right' });
         }
       });
 
-      // ส่วนลงนาม (ท้ายเอกสาร) 
-      const finalY = doc.lastAutoTable.finalY + 15;
-      if (finalY < 260) {
-        doc.setFontSize(12);
-        doc.text("ลงชื่อ......................................................ผู้รายงาน", 130, finalY);
-        doc.text("(......................................................)", 130, finalY + 8);
-      }
-
-      doc.save(`รายงานครุภัณฑ์_${Date.now()}.pdf`);
+      doc.save(`Report_${Date.now()}.pdf`);
     } catch (error) {
-      alert("เกิดข้อผิดพลาด: " + error.message);
+      console.error(error);
+      alert("เกิดข้อผิดพลาดในการสร้าง PDF");
     }
     setLoading(false);
   };
 
   return (
-    <div className="container mt-4">
-      <div className="card shadow-sm border-0">
-        <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-          <h5 className="mb-0 fw-bold">ใบรายงานสรุปข้อมูลครุภัณฑ์</h5>
-          <button className="btn btn-primary px-4" onClick={exportPDF} disabled={loading}>
-            {loading ? 'กำลังโหลดฟอนต์...' : 'ดาวน์โหลด PDF (ไทย)'}
-          </button>
-        </div>
-        <div className="card-body p-0">
-          <div className="table-responsive" style={{ maxHeight: '600px' }}>
-            <table className="table table-hover m-0">
-              <thead className="table-light sticky-top">
-                <tr className="text-center">
-                  <th>ลำดับ</th>
-                  <th>รหัสครุภัณฑ์</th>
-                  <th>ชื่อครุภัณฑ์</th>
-                  <th>สถานะ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.map((row, idx) => (
-                  <tr key={idx}>
-                    <td className="text-center">{idx + 1}</td>
-                    <td>{row["รหัสครุภัณฑ์"]}</td>
-                    <td>{row["ชื่อครุภัณฑ์"]}</td>
-                    <td className="text-center">
-                      <span className={`badge ${row["สถานะ"] === 'ชำรุด' ? 'bg-danger' : 'bg-success'}`}>
-                        {row["สถานะ"] || 'ปกติ'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+    <div className="p-5 text-center">
+      <h4 className="mb-4">ออกรายงานครุภัณฑ์ (คมชัดสูง)</h4>
+      <button className="btn btn-success btn-lg" onClick={exportPDF} disabled={loading || !data.length}>
+        {loading ? 'กำลังประมวลผลฟอนต์...' : 'ดาวน์โหลด PDF'}
+      </button>
     </div>
   );
 };
