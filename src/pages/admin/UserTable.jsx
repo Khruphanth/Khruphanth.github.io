@@ -8,7 +8,6 @@ const UserTable = () => {
   const [loading, setLoading] = useState(false);
   const [selectedRows, setSelectedRows] = useState(new Set());
   
-  // จำลองข้อมูลผู้ใช้ที่กำลังใช้งานระบบ (ควรดึงจาก Auth State ของคุณ)
   const loggedInUser = JSON.parse(localStorage.getItem('user')) || { role: 'admin' }; 
 
   const [showModal, setShowModal] = useState(false);
@@ -36,11 +35,9 @@ const UserTable = () => {
 
   useEffect(() => { loadUsers(); }, []);
 
-  // เช็คสิทธิ์การจัดการ (Admin แก้ได้แค่ User / SAdmin แก้ได้หมด)
+  // ปรับให้ Admin จัดการได้ทุกคน
   const canManage = (targetRole) => {
-    if (loggedInUser.role === 'sadmin') return true;
-    if (loggedInUser.role === 'admin') return targetRole === 'user';
-    return false;
+    return loggedInUser.role === 'admin';
   };
 
   const toggleSelect = (u) => {
@@ -120,7 +117,7 @@ const UserTable = () => {
                   <td className="text-muted">{u.pass}</td>
                   <td>{u.name}</td>
                   <td>
-                    <span className={`badge rounded-pill ${u.role==='sadmin'?'bg-dark':u.role==='admin'?'bg-danger':'bg-info text-dark'}`}>{u.role}</span>
+                    <span className={`badge rounded-pill ${u.role==='admin'?'bg-danger':'bg-info text-dark'}`}>{u.role}</span>
                   </td>
                   <td className="text-center" onClick={e => e.stopPropagation()}>
                       <button className="btn btn-warning btn-sm" disabled={!isManageable} onClick={() => { setCurrentUser(u); setModalMode('edit'); setShowModal(true); }}><i className="bi bi-pencil"></i></button>
@@ -150,14 +147,7 @@ const UserTable = () => {
                                   onChange={e=>setCurrentUser({...currentUser, role:e.target.value})}
                                 >
                                     <option value="user">User</option>
-                                    
-                                    {/* 🔥 บล็อกสิทธิ์: Admin จะไม่เห็นตัวเลือก Admin (เลือกได้แค่ User) */}
-                                    {(loggedInUser.role === 'sadmin' || (loggedInUser.role === 'admin' && currentUser.role === 'admin')) && (
-                                        <option value="admin">Admin</option>
-                                    )}
-                                    
-                                    {/* SAdmin เห็นเฉพาะตอนแก้คนที่เป็น SAdmin อยู่แล้ว */}
-                                    {currentUser.role === 'sadmin' && <option value="sadmin">SAdmin</option>}
+                                    <option value="admin">Admin</option>
                                 </select>
                             </div>
                         </div>
